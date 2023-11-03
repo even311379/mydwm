@@ -76,7 +76,8 @@
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
-enum { SchemeNorm, SchemeSel };                  /* color schemes */
+enum { SchemeNorm, SchemeSel, SchemeStatus, SchemeTagsSel, SchemeTagsNorm,
+  SchemeInfoSel, SchemeInfoNorm, SchemeWarn, SchemeUrgent  };                  /* color schemes */
 enum {
   NetSupported,
   NetWMName,
@@ -136,6 +137,7 @@ struct Client {
   unsigned int tags;
   int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen,
       isterminal, noswallow, issticky;
+  int issteam;
   unsigned int icw, ich; Picture icon;
   pid_t pid;
   int beingmoved;
@@ -185,6 +187,7 @@ struct Monitor {
   Window traywin;
   const Layout *lt[2];
   Pertag *pertag;
+  unsigned int alttag;
 };
 
 typedef struct {
@@ -239,6 +242,7 @@ static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
 static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
+static void keyrelease(XEvent *e);
 static void killclient(const Arg *arg);
 static void layoutmenu(const Arg *arg);
 static void manage(Window w, XWindowAttributes *wa);
@@ -284,6 +288,7 @@ static void spawn(const Arg *arg);
 static void spawnbar();
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
+static void togglealttag(const Arg *arg);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
 static void togglesticky(const Arg *arg);
@@ -351,8 +356,8 @@ static void (*handler[LASTEvent])(XEvent *) = {
     [EnterNotify] = enternotify,
     [Expose] = expose,
     [FocusIn] = focusin,
-    [KeyRelease] = keyrelease,
     [KeyPress] = keypress,
+    [KeyRelease] = keyrelease,
     [MappingNotify] = mappingnotify,
     [MapRequest] = maprequest,
     [MotionNotify] = motionnotify,
@@ -400,7 +405,24 @@ struct NumTags {
 
 static int combo = 0;
 
-void keyrelease(XEvent *e) { combo = 0; }
+void keyrelease(XEvent *e) { 
+  combo = 0; 
+  unsigned int i;
+  KeySym keysym;
+	XKeyEvent *ev;
+
+	ev = &e->xkey;
+	keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
+
+  for (i = 0; i < LENGTH(keys); i++)
+      if (momentaryalttags
+      && keys[i].func && keys[i].func == togglealttag
+      && selmon->alttag
+      && (keysym == keys[i].keysym
+      || CLEANMASK(keys[i].mod) == CLEANMASK(ev->state)))
+          keys[i].func(&(keys[i].arg));
+}
+
 
 void combotag(const Arg *arg) {
   if (selmon->sel && arg->ui & TAGMASK) {
@@ -442,6 +464,9 @@ void applyrules(Client *c) {
   XGetClassHint(dpy, c->win, &ch);
   class = ch.res_class ? ch.res_class : broken;
   instance = ch.res_name ? ch.res_name : broken;
+
+  if (strstr(class, "Steam") || strstr(class, "steam_app_"))
+    c->issteam = 1;
 
   for (i = 0; i < LENGTH(rules); i++) {
     r = &rules[i];
@@ -788,13 +813,16 @@ void configurerequest(XEvent *e) {
       c->bw = ev->border_width;
     else if (c->isfloating || !selmon->lt[selmon->sellt]->arrange) {
       m = c->mon;
-      if (ev->value_mask & CWX) {
-        c->oldx = c->x;
-        c->x = m->mx + ev->x;
-      }
-      if (ev->value_mask & CWY) {
-        c->oldy = c->y;
-        c->y = m->my + ev->y;
+      if (!c->issteam)
+      {
+        if (ev->value_mask & CWX) {
+          c->oldx = c->x;
+          c->x = m->mx + ev->x;
+        }
+        if (ev->value_mask & CWY) {
+          c->oldy = c->y;
+          c->y = m->my + ev->y;
+        }
       }
       if (ev->value_mask & CWWidth) {
         c->oldw = c->w;
@@ -1008,10 +1036,14 @@ void drawbar(Monitor *m) {
   if (usealtbar)
     return;
 
-  int x, w, tw = 0;
+  int x, w, wdelta, tw = 0;
   int boxs = drw->fonts->h / 9;
   int boxw = drw->fonts->h / 6 + 2;
   unsigned int i, occ = 0, urg = 0;
+  char *ts = stext;
+  char *tp = stext;
+  int tx = 0;
+  char ctmp;
   Client *c;
 
   if (!m->showbar)
@@ -1019,9 +1051,19 @@ void drawbar(Monitor *m) {
 
   /* draw status first so it can be overdrawn by tags later */
   if (m == selmon) { /* status is only drawn on selected monitor */
-    drw_setscheme(drw, scheme[SchemeNorm]);
+    drw_setscheme(drw, scheme[SchemeStatus]);
     tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
-    drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+    while (1) {
+        if ((unsigned int)*ts > LENGTH(colors)) { ts++; continue ; }
+        ctmp = *ts;
+        *ts = '\0';
+        drw_text(drw, m->ww - tw + tx, 0, tw - tx, bh, 0, tp, 0);
+        tx += TEXTW(tp) -lrpad;
+        if (ctmp == '\0') { break; }
+        drw_setscheme(drw, scheme[(unsigned int)(ctmp-1)]);
+        *ts = ctmp;
+        tp = ++ts;
+    }
   }
 
   for (c = m->clients; c; c = c->next) {
@@ -1032,9 +1074,9 @@ void drawbar(Monitor *m) {
   x = 0;
   for (i = 0; i < LENGTH(tags); i++) {
     w = TEXTW(tags[i]);
-    drw_setscheme(
-        drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-    drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
+    wdelta =selmon->alttag ? abs(TEXTW(tags[i]) - TEXTW(tagsalt[i])) / 2 : 0; 
+    drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeTagsSel : SchemeTagsNorm]);
+    drw_text(drw, x, 0, w, bh, wdelta + lrpad / 2, (selmon->alttag ? tagsalt[i] : tags[i]), urg & 1 << i);
     if (occ & 1 << i)
       drw_rect(drw, x + boxs, boxs, boxw, boxw,
                m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
@@ -1042,12 +1084,12 @@ void drawbar(Monitor *m) {
     x += w;
   }
   w = TEXTW(m->ltsymbol);
-  drw_setscheme(drw, scheme[SchemeNorm]);
+  drw_setscheme(drw, scheme[SchemeTagsNorm]);
   x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
   if ((w = m->ww - tw - x) > bh) {
     if (m->sel) {
-      drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
+      drw_setscheme(drw, scheme[m == selmon ? SchemeInfoSel : SchemeInfoNorm]);
       drw_text(drw, x, 0, w, bh, lrpad / 2 + (m->sel->icon ? m->sel->icw + ICONSPACING : 0), m->sel->name, 0);
 	  if (m->sel->icon)
           drw_pic(drw, x + lrpad / 2, (bh - m->sel->ich) / 2, m->sel->icw, m->sel->ich, m->sel->icon);
@@ -1058,7 +1100,7 @@ void drawbar(Monitor *m) {
                   stickyiconbb.x, stickyiconbb.y, boxw, boxw * stickyiconbb.y / stickyiconbb.x, 
                   stickyicon, LENGTH(stickyicon), Nonconvex, m->sel->tags & m->tagset[m->seltags]);
     } else {
-      drw_setscheme(drw, scheme[SchemeNorm]);
+      drw_setscheme(drw, scheme[SchemeInfoNorm]);
       drw_rect(drw, x, 0, w, bh, 1, 1);
     }
   }
@@ -1382,7 +1424,7 @@ void layoutmenu(const Arg *arg) {
   s = fgets(c, sizeof(c), p);
   pclose(p);
 
-  if (!s || *s == '\0' || c == '\0')
+  if (!s || *s == '\0')
     return;
 
   i = atoi(c);
@@ -2373,6 +2415,13 @@ void tagmon(const Arg *arg) {
   sendmon(selmon->sel, dirtomon(arg->i));
 }
 
+void togglealttag(const Arg *arg)
+{
+  selmon->alttag = !selmon->alttag;
+  drawbar(selmon);
+}
+
+
 void togglebar(const Arg *arg) {
   /**
    * Polybar tray does not raise maprequest event. It must be manually scanned
@@ -2597,20 +2646,19 @@ void updatebars(void) {
     return;
 
   Monitor *m;
-  XSetWindowAttributes wa = {.override_redirect = True,
-                             .background_pixel = 0,
-                             .border_pixel = 0,
-                             .colormap = cmap,
-                             .event_mask = ButtonPressMask | ExposureMask};
+  XSetWindowAttributes wa = {
+   .override_redirect = True,
+   .background_pixel = 0,
+   .border_pixel = 0,
+   .colormap = cmap,
+   .event_mask = ButtonPressMask|ExposureMask
+  };
   XClassHint ch = {"dwm", "dwm"};
   for (m = mons; m; m = m->next) {
     if (m->barwin)
       continue;
-    m->barwin = XCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, depth,
-                              InputOutput, visual,
-                              CWOverrideRedirect | CWBackPixel | CWBorderPixel |
-                                  CWColormap | CWEventMask,
-                              &wa);
+    m->barwin = XCreateWindow(dpy, root, m->wx, m->by, m->ww, bh, 0, depth, InputOutput, visual,
+      CWOverrideRedirect | CWBackPixel | CWBorderPixel | CWColormap | CWEventMask, &wa);
     XDefineCursor(dpy, m->barwin, cursor[CurNormal]->cursor);
     XMapRaised(dpy, m->barwin);
     XSetClassHint(dpy, m->barwin, &ch);

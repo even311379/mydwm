@@ -20,7 +20,12 @@ static const char *alttrayname = "tray";    /* Polybar tray instance name */
 static const char *altbarcmd = "$HOME/bar.sh"; /* Alternate bar launch command */
 // Need to use font which support your language: ex traditional chinese...
 // otherwise the chinese character will be so small
-static const char *fonts[] = {"Noto Sans CJK TC:size=12:antialias=true:autohint=true"};
+static const char *fonts[] = {
+	"Noto Sans CJK TC:size=12:antialias=true:autohint=true",
+	// "LiterationSans Nerd Font:size=48",
+	"Font Awesome 6 Free:size=9:antialias:true:style=Solid",
+	"Font Awesome 6 Brands:size=9:antialias:true",
+};
 static const char dmenufont[] = "monospace:size=10";
 static const char col_gray1[] = "#222222";
 static const char col_gray2[] = "#444444";
@@ -42,8 +47,24 @@ static const unsigned int baralpha = 0xd0;
 static const unsigned int borderalpha = OPAQUE;
 static const char *colors[][3] = {
     /*               fg         bg         border   */
-    [SchemeNorm] = {col_gruvbox_dark7, col_gruvbox_dark0, col_gruvbox_dark0},
+    [SchemeNorm] = {col_gruvbox_dark7, col_gruvbox_dark0, col_gruvbox_dark6},
     [SchemeSel]  = {col_gruvbox_dark0, col_gruvbox_dark3, col_gruvbox_dark6},
+    /* colorbar patch: */
+    // Statusbar right {text,background,not used but cannot be empty}
+    [SchemeStatus]  ={col_gray1, col_gruvbox_dark3, col_gruvbox_dark6},
+    // Tagbar left selected {text,background,not used but cannot be empty}
+    [SchemeTagsSel]  ={col_gray1, col_gruvbox_dark5, col_gruvbox_dark6},
+    // Tagbar left unselected {text,background,not used but cannot be empty}
+    [SchemeTagsNorm]  = { col_gruvbox_dark7, col_gruvbox_dark0,   col_gruvbox_dark6  }, 
+    // infobar middle  selected {text,background,not used but cannot be empty}
+    [SchemeInfoSel]  = { col_gray1, col_gruvbox_dark6,   col_gruvbox_dark6  }, 
+    // infobar middle  unselected {text,background,not used but cannot be empty}
+    [SchemeInfoNorm]  = { col_gruvbox_dark7, col_gruvbox_dark0,   col_gruvbox_dark6  }, 
+    
+    /* status color patch*/
+    [SchemeWarn] = {col_gray1, col_gruvbox_dark3, col_gruvbox_dark6},
+    [SchemeUrgent] = {col_gray1, col_gruvbox_dark1, col_gruvbox_dark6},
+
     /* [SchemeNorm] = {col_gray3, col_gray1, col_gray2}, */
     /* [SchemeSel] = {col_gray4, col_cyan, col_cyan}, */
 };
@@ -51,12 +72,20 @@ static const unsigned int alphas[][3] = {
     /*               fg      bg        border*/
     [SchemeNorm] = {OPAQUE, baralpha, borderalpha},
     [SchemeSel] = {OPAQUE, baralpha, borderalpha},
+    [SchemeStatus] = {OPAQUE, baralpha, borderalpha},
+    [SchemeTagsSel] = {OPAQUE, baralpha, borderalpha},
+    [SchemeTagsNorm] = {OPAQUE, baralpha, borderalpha},
+    [SchemeInfoSel] = {OPAQUE, baralpha, borderalpha},
+    [SchemeInfoNorm] = {OPAQUE, baralpha, borderalpha},
 };
 static const XPoint stickyicon[]    = { {0,0}, {4,0}, {4,8}, {2,6}, {0,8}, {0,0} }; /* represents the icon as an array of vertices */
 static const XPoint stickyiconbb    = {4,8};	/* defines the bottom right corner of the polygon's bounding box (speeds up scaling) */
 
 /* tagging */
-static const char *tags[] = {"➊", "➋", "➌", "➍", "➎", "➏", "➐", "➑", "➒"};
+static const char *tags[] = {"", "", "", "", "", "", "", "", ""};
+static const char *tagsalt[] = {"➊", "➋", "➌", "➍", "➎", "➏", "➐", "➑", "➒"};
+static const int momentaryalttags=0; /* 1 means alttags will show only when key is held down */
+
 static const Rule rules[] = {
     /* xprop(1):
      *	WM_CLASS(STRING) = instance, class
@@ -100,18 +129,16 @@ static const Layout layouts[] = {
 };
 
 /* key definitions */
+
 #define MODKEY Mod4Mask
-#define TAGKEYS(KEY, TAG)                                                      \
-  {MODKEY, KEY, view, {.ui = 1 << TAG}},                                       \
-      {MODKEY | ControlMask, KEY, toggleview, {.ui = 1 << TAG}},               \
-      {MODKEY | ShiftMask, KEY, tag, {.ui = 1 << TAG}},                        \
-      {MODKEY | ControlMask | ShiftMask, KEY, toggletag, {.ui = 1 << TAG}},
+#define TAGKEYS(KEY,TAG) \
+	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
+	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
+	{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
+//	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,     {.ui = TAG } },     \
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
-#define SHCMD(cmd)                                                             \
-  {                                                                            \
-    .v = (const char *[]) { "/bin/sh", "-c", cmd, NULL }                       \
-  }
+#define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
 // static const char *dmenucmd[] = { "dmenu_run", "-fn", dmenufont, "-nb",
@@ -126,19 +153,19 @@ static const char *termcmd[] = {"st"};
 static const char *layoutmenu_cmd = "layoutmenu.sh"; //need to install xmenu and then click on it 
 static const char scratchpadname[] = "scratchpad";
 /* static const char *scratchpadcmd[] = {"st", "-t", scratchpadname, "-g", "120x34"}; */
-static const char *volumemixercmd[] = {"st", "-t", scratchpadname, "-g", "120x34", "-e", "pulsemixer"};
+/* static const char *volumemixercmd[] = {"st", "-t", scratchpadname, "-g", "120x34", "-e", "pulsemixer", "NULL"}; */
 
 
 static const Key keys[] = {
     /* modifier                     key        function        argument */
-    {MODKEY | ShiftMask, XK_Return, spawn, SHCMD("kitty")},
+    {MODKEY | ShiftMask, XK_Return, spawn, SHCMD("st")},
     {MODKEY, XK_b, spawn, SHCMD("thorium-browser")},
-    {MODKEY, XK_e, spawn, SHCMD("kitty -e vifm")},
+    {MODKEY, XK_e, spawn, SHCMD("st -e vifm")},
     // dolphin with KDE env so that the color will be perfect!
     {MODKEY | ShiftMask, XK_e, spawn, SHCMD("env XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_VERSION=5 dolphin")}, 
     {MODKEY, XK_w, spawn, SHCMD("com.logseq.Logseq")},  // my note app logseq
     /* {MODKEY, XK_grave, spawn, {.v = scratchpadcmd}}, */
-    {MODKEY, XK_v, spawn, {.v = volumemixercmd}},
+    {MODKEY, XK_v, spawn, SHCMD("st -t scratchpad -g 120x34 -e pulsemixer")},
     {MODKEY, XK_a, spawn, SHCMD("dmenu_run -c -l 16")},
     {MODKEY | ShiftMask, XK_a, spawn, SHCMD("./.local/share/dmenu_scripts/dmenu_kill")},
     {MODKEY | ShiftMask, XK_m, spawn, SHCMD("./.local/share/dmenu_scripts/dmenu_music")},
@@ -162,6 +189,7 @@ static const Key keys[] = {
     {MODKEY, XK_space, cyclelayout, {.i = +1}},
     {MODKEY | ShiftMask, XK_space, cyclelayout, {.i = -1}},
     {MODKEY , XK_0, togglesticky, {0}}, // toggle sticky it works!
+    {MODKEY , XK_n, togglealttag, {0}}, // toggle alttag
 
     {MODKEY, XK_comma,  focusmon, {.i = -1}},
     {MODKEY, XK_period, focusmon, {.i = +1}},
@@ -215,7 +243,10 @@ static const Button buttons[] = {
     {ClkLtSymbol, 0, Button3, setlayout, {.v = &layouts[2]}},
     {ClkWinTitle, 0, Button2, zoom, {0}},
     {ClkStatusText, 0, Button2, spawn, {.v = termcmd}},
-    {ClkClientWin, MODKEY, Button1, movemouse, {0}},
+    // drag to reorder win position? placemouse patch from bakkeby/dwm-flexipatch
+    // move to place is more natural use case... so I move default drag to float ShiftMask one
+    {ClkClientWin, MODKEY, Button1, moveorplace, {.i = 1}}, 
+    {ClkClientWin, MODKEY | ShiftMask, Button1, movemouse, {0}},
     {ClkClientWin, MODKEY, Button2, togglefloating, {0}},
     {ClkClientWin, MODKEY, Button3, resizemouse, {0}},
     {ClkClientWin, MODKEY | ShiftMask, Button3, dragcfact, {0}},
