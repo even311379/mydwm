@@ -7,10 +7,12 @@ static const unsigned int gappih    = 10;       /* horiz inner gap between windo
 static const unsigned int gappiv    = 5;       /* vert inner gap between windows */
 static const unsigned int gappoh    = 5;       /* horiz outer gap between windows and screen edge */
 static const unsigned int gappov    = 15;       /* vert outer gap between windows and screen edge */
-static       int smartgaps          = 1;        /* 1 means no outer gap when there is only one window */
+static       int smartgaps          = 0;        /* 1 means no outer gap when there is only one window */
 static const int swallowfloating = 0;   /* 1 means swallow floating windows by default */
 static const int showbar = 1; /* 0 means no bar */
 static const int topbar = 1;  /* 0 means bottom bar */
+static const int vertpad = 5; /* vertical padding of bar */
+static const int sidepad = 20; /* horizontal padding of bar */
 #define ICONSIZE 36 /* icon size */
 #define ICONSPACING 5 /* space between icon and title */
 static const int usealtbar = 0;
@@ -21,10 +23,10 @@ static const char *altbarcmd = "$HOME/bar.sh"; /* Alternate bar launch command *
 // Need to use font which support your language: ex traditional chinese...
 // otherwise the chinese character will be so small
 static const char *fonts[] = {
-	"Noto Sans CJK TC:size=12:antialias=true:autohint=true",
-	// "LiterationSans Nerd Font:size=48",
-	"Font Awesome 6 Free:size=9:antialias:true:style=Solid",
-	"Font Awesome 6 Brands:size=9:antialias:true",
+	"Noto Sans CJK TC:size=10:antialias=true:autohint=true",
+	"LiterationSans Nerd Font:size=12",
+	"Font Awesome 6 Free:size=8:antialias:true:style=Solid",
+	"Font Awesome 6 Brands:size=8:antialias:true",
 };
 static const char dmenufont[] = "monospace:size=10";
 static const char col_gray1[] = "#222222";
@@ -43,7 +45,8 @@ static const char col_gruvbox_dark5[] = "#b16286"; // megenta
 static const char col_gruvbox_dark6[] = "#689d6a"; // cyan
 static const char col_gruvbox_dark7[] = "#a89984"; // white
 
-static const unsigned int baralpha = 0xd0;
+// static const unsigned int baralpha = 0xd0;
+static const unsigned int baralpha = 0xff;
 static const unsigned int borderalpha = OPAQUE;
 static const char *colors[][3] = {
     /*               fg         bg         border   */
@@ -51,20 +54,16 @@ static const char *colors[][3] = {
     [SchemeSel]  = {col_gruvbox_dark0, col_gruvbox_dark3, col_gruvbox_dark6},
     /* colorbar patch: */
     // Statusbar right {text,background,not used but cannot be empty}
-    [SchemeStatus]  ={col_gray1, col_gruvbox_dark3, col_gruvbox_dark6},
+    [SchemeStatus]  ={col_gruvbox_dark7, col_gruvbox_dark0, col_gruvbox_dark6},
     // Tagbar left selected {text,background,not used but cannot be empty}
     [SchemeTagsSel]  ={col_gray1, col_gruvbox_dark5, col_gruvbox_dark6},
     // Tagbar left unselected {text,background,not used but cannot be empty}
     [SchemeTagsNorm]  = { col_gruvbox_dark7, col_gruvbox_dark0,   col_gruvbox_dark6  }, 
     // infobar middle  selected {text,background,not used but cannot be empty}
-    [SchemeInfoSel]  = { col_gray1, col_gruvbox_dark6,   col_gruvbox_dark6  }, 
+    [SchemeInfoSel]  = { col_gruvbox_dark3, col_gruvbox_dark0,   col_gruvbox_dark6  }, 
     // infobar middle  unselected {text,background,not used but cannot be empty}
     [SchemeInfoNorm]  = { col_gruvbox_dark7, col_gruvbox_dark0,   col_gruvbox_dark6  }, 
     
-    /* status color patch*/
-    [SchemeWarn] = {col_gray1, col_gruvbox_dark3, col_gruvbox_dark6},
-    [SchemeUrgent] = {col_gray1, col_gruvbox_dark1, col_gruvbox_dark6},
-
     /* [SchemeNorm] = {col_gray3, col_gray1, col_gray2}, */
     /* [SchemeSel] = {col_gray4, col_cyan, col_cyan}, */
 };
@@ -82,7 +81,7 @@ static const XPoint stickyicon[]    = { {0,0}, {4,0}, {4,8}, {2,6}, {0,8}, {0,0}
 static const XPoint stickyiconbb    = {4,8};	/* defines the bottom right corner of the polygon's bounding box (speeds up scaling) */
 
 /* tagging */
-static const char *tags[] = {"", "", "", "", "", "", "", "", ""};
+static const char *tags[] = {"󰣇", "", "", "", "󰎞", "󰂫", "", "", ""};
 static const char *tagsalt[] = {"➊", "➋", "➌", "➍", "➎", "➏", "➐", "➑", "➒"};
 static const int momentaryalttags=0; /* 1 means alttags will show only when key is held down */
 
@@ -92,11 +91,20 @@ static const Rule rules[] = {
      *	WM_NAME(STRING) = title
      */
     /* class      instance    title     tags mask   floating?  terminal? nosawllow monitor */
-    {"Gimp",        NULL,       NULL,      0,        1,            0,        0,      -1},
-    {"Firefox",     NULL,       NULL,    1 << 8,     0,            0,       -1,      -1},
-    {"st",          NULL,       NULL,      0,        0,            1,        0,      -1},
-    {"kitty",       NULL,       NULL,      0,        0,            1,        0,      -1},
-    {NULL,          NULL, "Event Tester",  0,        0,            0,        1,      -1}, /* vex */
+    {"Thorium-browser", NULL,  NULL,      1<<1,       0,            0,       -1,      -1},
+    {"st",          NULL,      NULL,      1<<2,       0,            1,        0,      -1},
+    {"kitty",       NULL,      NULL,      1<<2,       0,            1,        0,      -1},
+    {"okular",      NULL,      NULL,      1<<3,       0,            0,        0,      -1},
+    {"calibre",     NULL,      NULL,      1<<3,       0,            0,        0,      -1},
+    {"Logseq",      NULL,      NULL,      1<<4,       0,            0,        0,       1},
+    {"Blender",     NULL,      NULL,      1<<5,       0,            0,        0,       0},
+    {"thunderbird", NULL,      NULL,      1<<6,       0,            0,        0,       1},
+    {"Helix P4V",   NULL,      NULL,      1<<6,       0,            0,        0,       1},
+    {"GitHub Desktop",NULL,    NULL,      1<<6,       0,            0,        0,       1},
+    {"Caprine",     NULL,      NULL,      1<<7,       0,            0,        0,       1},
+    {"discord",     NULL,      NULL,      1<<7,       0,            0,        0,       1},
+    {"steam",       NULL,      NULL,      1<<8,       0,            0,        0,       0},
+    {NULL,          NULL, "Event Tester",  0,         0,            0,        1,      -1}, /* vex */
 };
 
 /* layout(s) */
@@ -110,8 +118,8 @@ static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen win
 
 static const Layout layouts[] = {
     /* symbol     arrange function */
-    {"[T]", tile}, /* first entry is default */
-    {"[G]", grid},
+    {"[ ]=", tile}, /* first entry is default */
+    {"HHH", grid},
     {"[M]", monocle}, 
 //{ "[@]",      spiral },
 //{ "[\\]",     dwindle },
@@ -122,9 +130,9 @@ static const Layout layouts[] = {
 //{ "###",      nrowgrid },
 //{ "---",      horizgrid },
 //{ ":::",      gaplessgrid },
-//{ "|M|",      centeredmaster },
+    { "|M|",      centeredmaster },
 //{ ">M>",      centeredfloatingmaster },
-    {"[F]", NULL}, /* no layout function means floating behavior */
+    {"><>", NULL}, /* no layout function means floating behavior */
     {NULL, NULL}, 
 };
 
@@ -150,15 +158,13 @@ static const Layout layouts[] = {
    st alpha is just not working...
  */
 static const char *termcmd[] = {"st"}; 
-static const char *layoutmenu_cmd = "layoutmenu.sh"; //need to install xmenu and then click on it 
 static const char scratchpadname[] = "scratchpad";
 /* static const char *scratchpadcmd[] = {"st", "-t", scratchpadname, "-g", "120x34"}; */
 /* static const char *volumemixercmd[] = {"st", "-t", scratchpadname, "-g", "120x34", "-e", "pulsemixer", "NULL"}; */
-
-
+ 
 static const Key keys[] = {
     /* modifier                     key        function        argument */
-    {MODKEY | ShiftMask, XK_Return, spawn, SHCMD("st")},
+    {MODKEY, XK_x, spawn, SHCMD("st")},
     {MODKEY, XK_b, spawn, SHCMD("thorium-browser")},
     {MODKEY, XK_e, spawn, SHCMD("st -e vifm")},
     // dolphin with KDE env so that the color will be perfect!
@@ -239,10 +245,11 @@ static const Key keys[] = {
  * ClkClientWin, or ClkRootWin */
 static const Button buttons[] = {
     /* click                event mask      button          function argument */
-    {ClkLtSymbol, 0, Button1, setlayout, {0}},
+    {ClkLtSymbol, 0, Button1, cyclelayout, {.i = +1}},
     {ClkLtSymbol, 0, Button3, setlayout, {.v = &layouts[2]}},
     {ClkWinTitle, 0, Button2, zoom, {0}},
-    {ClkStatusText, 0, Button2, spawn, {.v = termcmd}},
+    {ClkStatusText, 0, Button1, spawn, SHCMD("cmus-remote -u")}, // toggle cmus play
+    {ClkStatusText, 0, Button2, spawn, SHCMD("st")},
     // drag to reorder win position? placemouse patch from bakkeby/dwm-flexipatch
     // move to place is more natural use case... so I move default drag to float ShiftMask one
     {ClkClientWin, MODKEY, Button1, moveorplace, {.i = 1}}, 
