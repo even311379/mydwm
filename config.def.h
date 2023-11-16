@@ -92,7 +92,7 @@ static const Rule rules[] = {
      */
     /* class      instance    title     tags mask   floating?  terminal? nosawllow monitor */
     {"Thorium-browser", NULL,  NULL,      1<<1,       0,            0,       -1,      -1},
-    {"st",          NULL,      NULL,      1<<2,       0,            1,        0,      -1},
+//    {"st",          NULL,      NULL,      1<<2,       0,            1,        0,      -1},
     {"kitty",       NULL,      NULL,      1<<2,       0,            1,        0,      -1},
     {"okular",      NULL,      NULL,      1<<3,       0,            0,        0,      -1},
     {"calibre",     NULL,      NULL,      1<<3,       0,            0,        0,      -1},
@@ -111,7 +111,6 @@ static const Rule rules[] = {
 static const float mfact = 0.55; /* factor of master area size [0.05..0.95] */
 static const int nmaster = 1;    /* number of clients in master area */
 static const int resizehints = 1; /* 1 means respect size hints in tiled resizals */
-static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
 
 #define FORCE_VSPLIT 1
 #include "vanitygaps.c"
@@ -161,12 +160,13 @@ static const char *termcmd[] = {"st"};
 static const char scratchpadname[] = "scratchpad";
 /* static const char *scratchpadcmd[] = {"st", "-t", scratchpadname, "-g", "120x34"}; */
 /* static const char *volumemixercmd[] = {"st", "-t", scratchpadname, "-g", "120x34", "-e", "pulsemixer", "NULL"}; */
+#include "shift-tools.c"
  
 static const Key keys[] = {
     /* modifier                     key        function        argument */
     {MODKEY, XK_x, spawn, SHCMD("st")},
     {MODKEY, XK_b, spawn, SHCMD("thorium-browser")},
-    {MODKEY, XK_e, spawn, SHCMD("st -e vifm")},
+    {MODKEY, XK_e, spawn, SHCMD("st -e vifmrun")}, 
     // dolphin with KDE env so that the color will be perfect!
     {MODKEY | ShiftMask, XK_e, spawn, SHCMD("env XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_VERSION=5 dolphin")}, 
     {MODKEY, XK_w, spawn, SHCMD("com.logseq.Logseq")},  // my note app logseq
@@ -196,6 +196,8 @@ static const Key keys[] = {
     {MODKEY | ShiftMask, XK_space, cyclelayout, {.i = -1}},
     {MODKEY , XK_0, togglesticky, {0}}, // toggle sticky it works!
     {MODKEY , XK_n, togglealttag, {0}}, // toggle alttag
+    {MODKEY , XK_f, togglefullscreen, {0}}, // toggle fullscreen
+    {MODKEY | ShiftMask , XK_f, togglefakefullscreen, {0}}, // toggle fake fullscreen
 
     {MODKEY, XK_comma,  focusmon, {.i = -1}},
     {MODKEY, XK_period, focusmon, {.i = +1}},
@@ -211,6 +213,15 @@ static const Key keys[] = {
     TAGKEYS(XK_7, 6)
     TAGKEYS(XK_8, 7)
     TAGKEYS(XK_9, 8)
+
+    // shift tools
+    {MODKEY, XK_Left, shiftview, {.i = -1}},
+    {MODKEY, XK_Right, shiftview, {.i = +1}},
+    {MODKEY|ShiftMask, XK_Left, shifttag, {.i = -1}},
+    {MODKEY|ShiftMask, XK_Right, shifttag, {.i = +1}},
+    {MODKEY|ShiftMask|ControlMask, XK_Left, shiftboth, {.i = -1}},
+    {MODKEY|ShiftMask|ControlMask, XK_Right, shiftboth, {.i = +1}},
+
     {MODKEY | ControlMask, XK_q, quit, {0}}, // quit dwm
     {MODKEY | ControlMask, XK_r, quit, {1}}, // restart dwm
                                              
