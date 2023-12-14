@@ -91,7 +91,7 @@ static const Rule rules[] = {
      *	WM_NAME(STRING) = title
      */
     /* class      instance    title     tags mask   floating?  terminal? nosawllow monitor */
-    {"Thorium-browser", NULL,  NULL,      1<<1,       0,            0,       -1,      -1},
+//    {"firefox", NULL,  NULL,      1<<1,       0,            0,       -1,      -1},
 //    {"st",          NULL,      NULL,      1<<2,       0,            1,        0,      -1},
     {"kitty",       NULL,      NULL,      1<<2,       0,            1,        0,      -1},
     {"okular",      NULL,      NULL,      1<<3,       0,            0,        0,      -1},
@@ -117,19 +117,19 @@ static const int resizehints = 1; /* 1 means respect size hints in tiled resizal
 
 static const Layout layouts[] = {
     /* symbol     arrange function */
-    {"[ ]=", tile}, /* first entry is default */
-    {"HHH", grid},
-    {"[M]", monocle}, 
-//{ "[@]",      spiral },
-//{ "[\\]",     dwindle },
-//{ "H[]",      deck },
-//{ "TTT",      bstack },
-//{ "===",      bstackhoriz },
-//{ "HHH",      grid },
-//{ "###",      nrowgrid },
-//{ "---",      horizgrid },
-//{ ":::",      gaplessgrid },
-    { "|M|",      centeredmaster },
+    { "[ ]=",     tile}, /* first entry is default */
+    { "[M]",      monocle}, 
+    { "H[]",      deck },
+    { "TTT",      bstack },
+//    { "HHH",      grid},
+//  { "[@]",      spiral },
+//  { "[\\]",     dwindle },
+//  { "===",      bstackhoriz },
+//  { "HHH",      grid },
+//  { "###",      nrowgrid },
+//  { "---",      horizgrid },
+//  { ":::",      gaplessgrid },
+//{ "|M|",      centeredmaster },
 //{ ">M>",      centeredfloatingmaster },
     {"><>", NULL}, /* no layout function means floating behavior */
     {NULL, NULL}, 
@@ -165,7 +165,7 @@ static const char scratchpadname[] = "scratchpad";
 static const Key keys[] = {
     /* modifier                     key        function        argument */
     {MODKEY, XK_x, spawn, SHCMD("st")},
-    {MODKEY, XK_b, spawn, SHCMD("thorium-browser")},
+    {MODKEY, XK_b, spawn, SHCMD("firefox")},
     {MODKEY, XK_e, spawn, SHCMD("st -e vifmrun")}, 
     // dolphin with KDE env so that the color will be perfect!
     {MODKEY | ShiftMask, XK_e, spawn, SHCMD("env XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_VERSION=5 dolphin")}, 
@@ -260,6 +260,7 @@ static const Button buttons[] = {
     {ClkLtSymbol, 0, Button3, setlayout, {.v = &layouts[2]}},
     {ClkWinTitle, 0, Button2, zoom, {0}},
     {ClkStatusText, 0, Button1, spawn, SHCMD("cmus-remote -u")}, // toggle cmus play
+    {ClkStatusText, 0, Button3, spawn, SHCMD("st -e btop")}, // btop wonderful
     {ClkStatusText, 0, Button2, spawn, SHCMD("st")},
     // drag to reorder win position? placemouse patch from bakkeby/dwm-flexipatch
     // move to place is more natural use case... so I move default drag to float ShiftMask one
